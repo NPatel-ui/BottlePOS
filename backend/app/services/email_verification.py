@@ -177,8 +177,11 @@ If you did not request this, please disregard this email.
         client = get_supabase_client()
         if client:
             try:
-                logger.info("Delegating verification email to Supabase Auth for: %s", recipient_email)
-                res = client.auth.sign_in_with_otp({"email": recipient_email})
+                redirect_target = "https://bottle-pos.vercel.app/admin"
+                res = client.auth.sign_in_with_otp({
+                    "email": recipient_email,
+                    "options": {"email_redirect_to": redirect_target}
+                })
                 logger.info("Requested Supabase Auth OTP email delivery for %s: %s", recipient_email, res)
                 return True
             except Exception as e:

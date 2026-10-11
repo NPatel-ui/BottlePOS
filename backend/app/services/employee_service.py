@@ -101,3 +101,25 @@ class EmployeeService:
         employee.active_status = True
         self.repository.update(employee)
         return {"success": True, "message": "Email verified successfully! You can now log in with your credentials."}
+
+    def activate_employee_by_email(self, email: str) -> dict:
+        employee = self.repository.get_by_email(email)
+        if not employee:
+            raise NotFoundException("Employee account", email)
+        employee.active_status = True
+        self.repository.update(employee)
+        email_verification_service.delete_record(email)
+        access_token = create_access_token(subject=employee.id)
+        return {
+            "success": True,
+            "message": "Account verified and unlocked successfully!",
+            "access_token": access_token,
+            "token_type": "bearer",
+            "employee": {
+                "id": employee.id,
+                "first_name": employee.first_name,
+                "email": employee.email,
+                "role": employee.role
+            }
+        }
+

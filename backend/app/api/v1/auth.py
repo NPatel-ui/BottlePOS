@@ -85,3 +85,14 @@ async def resend_verification(
         "expires_in_minutes": 10,
         "expires_at": verification.expires_at.isoformat()
     }
+
+class ConfirmLinkRequest(BaseModel):
+    email: str
+
+@router.post("/confirm-link")
+async def confirm_link(
+    data: ConfirmLinkRequest,
+    service: EmployeeService = Depends(get_employee_service)
+):
+    return service.activate_employee_by_email(data.email)
+

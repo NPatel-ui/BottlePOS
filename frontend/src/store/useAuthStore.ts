@@ -29,6 +29,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<LoginResult>;
   register: (username: string, email: string, password: string) => Promise<RegisterResult>;
   verifyEmail: (email: string, code: string) => Promise<VerifyResult>;
+  confirmLink: (email: string) => Promise<VerifyResult>;
   resendVerification: (email: string) => Promise<RegisterResult>;
   logout: () => void;
   fetchCurrentUser: () => Promise<void>;
@@ -162,7 +163,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { success: false, error: error?.message || 'Network error while resending code.' };
     }
   },
-  
+
+  confirmLink: async (email: string): Promise<VerifyResult> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/auth/confirm-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return { success: false, message: data?.error?.message || 'Link confirmation failed.' };
+      }
+
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+        if (data.employee) {
+          const userData = { username: data.employee.first_name, email: data.employee.email, id: data.employee.id, token: data.access_token };
+          localStorage.setItem('user', JSON.stringify(userData));
+          set({ isAuthenticated: true, isAdmin: true, currentUser: userData });
+        }
+      }
+
+      return { success: true, message: data.message || 'Account verified successfully!' };
+    } catch (error: any) {
+      return { success: false, message: error?.message || 'Network error confirming link.' };
+    }
+  },
+
   fetchCurrentUser: async () => {
     const token = localStorage.getItem('token');
     if (!token) return;

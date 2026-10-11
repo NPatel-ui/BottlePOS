@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 export default function AdminAuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -48,8 +49,48 @@ export default function AdminAuthPage() {
   const login = useAuthStore((state) => state.login);
   const register = useAuthStore((state) => state.register);
   const verifyEmail = useAuthStore((state) => state.verifyEmail);
+  const confirmLink = useAuthStore((state) => state.confirmLink);
   const resendVerification = useAuthStore((state) => state.resendVerification);
   const navigate = useNavigate();
+
+  // Listen for Supabase Magic Confirmation Link clicks
+  useEffect(() => {
+    if (!supabase) return;
+
+    // Check if browser was redirected with active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        handleLinkConfirmed(session.user.email);
+      }
+    });
+
+    // Listen for auth state change from link click
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user?.email) {
+        handleLinkConfirmed(session.user.email);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLinkConfirmed = async (confirmedEmail: string) => {
+    setShowVerificationModal(false);
+    setIsUnlocking(true);
+    setSuccessNotice(`Email verified (${confirmedEmail})! Granting portal access...`);
+    try {
+      await confirmLink(confirmedEmail);
+      setTimeout(() => {
+        navigate('/admin/dashboard');
+      }, 1200);
+    } catch {
+      setTimeout(() => {
+        navigate('/admin/dashboard');
+      }, 1200);
+    }
+  };
 
   // 10-Minute Countdown Timer
   useEffect(() => {
@@ -565,59 +606,36 @@ export default function AdminAuthPage() {
                     </div>
                   ) : (
                     <>
-                      {/* Code Input */}
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">
-                          Enter 6-Digit Verification Code
-                        </label>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={verificationCode}
-                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          placeholder="••••••"
-                          className="w-full tracking-[0.5em] text-center font-mono text-2xl font-black bg-slate-50 border border-slate-200 rounded-2xl py-3 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/50 text-slate-800"
-                        />
+                      {/* Link Confirmation Waiting State */}
+                      <div className="p-5 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-center space-y-3">
+                        <div className="flex items-center justify-center gap-2 text-primary font-bold text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Waiting for link confirmation...</span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                          Open the email sent to <strong className="text-slate-800">{verificationEmail}</strong> and click the <strong>confirmation link</strong>. This page will automatically grant access!
+                        </p>
                       </div>
 
                       {/* Action Buttons */}
                       <div className="space-y-2 pt-2">
                         <button
                           type="button"
-                          onClick={handleVerifyCode}
-                          disabled={isVerifying || verificationCode.length !== 6}
+                          onClick={handleResendCode}
+                          disabled={isResending || remainingSeconds > 540}
                           className="w-full btn-filled h-12 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
                         >
-                          {isVerifying ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Verifying Code...</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>Verify Email Now</span>
-                            </>
-                          )}
+                          <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
+                          <span>{isResending ? 'Sending...' : 'Resend Confirmation Link'}</span>
                         </button>
 
-                        <div className="flex items-center justify-between text-xs pt-2">
-                          <button
-                            type="button"
-                            onClick={handleResendCode}
-                            disabled={isResending || remainingSeconds > 540}
-                            className="font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-40"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
-                            <span>Resend Code</span>
-                          </button>
-
+                        <div className="flex items-center justify-center text-xs pt-1">
                           <button
                             type="button"
                             onClick={handleProceedToLogin}
                             className="font-bold text-primary hover:underline flex items-center gap-1"
                           >
-                            <span>Proceed to Login</span>
+                            <span>Back to Login</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
