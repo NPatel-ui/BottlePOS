@@ -1,0 +1,2 @@
+-- Please refer to /supabase_schema.sql in the root directory for the full SQL migration.
+-- You can run the entire contents of /supabase_schema.sql in your Supabase SQL Editor.

@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-label-primary min-h-screen;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-accent;
+  }
+}
+
+@layer components {
+  /* ── Premium Light Surfaces ────────────────────────────── */
+  .surface {
+    @apply bg-bg-raised rounded-apple-lg shadow-card;
+    border: 1px solid theme('colors.separator');
+  }
+
+  .surface-elevated {
+    @apply bg-bg-elevated rounded-apple-xl shadow-elevated;
+    border: 1px solid theme('colors.separator');
+  }
+
+  /* ── Vibrant Buttons ───────────────────────────────────── */
+  .btn-filled {
+    @apply bg-gradient-accent text-white font-semibold rounded-apple-lg px-6 py-3 shadow-button
+    hover:opacity-90 active:brightness-90 active:scale-[0.97]
+    transition-all duration-300 ease-out
+    outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+
+  .btn-tinted {
+    @apply bg-accent-subtle text-primary font-semibold rounded-apple-lg px-6 py-3
+    hover:bg-accent/20 active:bg-accent/25 active:scale-[0.97]
+    transition-all duration-300 ease-out
+    outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+
+  .btn-plain {
+    @apply text-label-secondary font-medium rounded-apple px-4 py-2
+    hover:bg-surfaceHover hover:text-label-primary active:bg-border active:scale-[0.97]
+    transition-all duration-300 ease-out;
+  }
+
+  .btn-gray {
+    @apply bg-surfaceHover text-label-primary font-medium rounded-apple-lg px-6 py-3
+    hover:bg-border active:brightness-95 active:scale-[0.97]
+    transition-all duration-300 ease-out;
+  }
+
+  .btn-destructive {
+    @apply bg-danger text-white font-semibold rounded-apple-lg px-6 py-3 shadow-card
+    hover:brightness-110 active:brightness-90 active:scale-[0.97]
+    transition-all duration-300 ease-out;
+  }
+
+  /* ── Scrollbar ─────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-separator rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-label-tertiary;
+    background-clip: padding-box;
+  }
+}
