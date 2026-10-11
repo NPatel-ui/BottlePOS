@@ -40,16 +40,29 @@ class EmailVerificationService:
         from_name = settings.smtp_from_name or "BottlePOS Security"
 
         if not smtp_host or not smtp_user or not smtp_pass:
+            # Fallback to Supabase Auth OTP Email Delivery!
+            client = get_supabase_client()
+            if client:
+                try:
+                    logger.info("SMTP not configured. Delegating verification email to Supabase Auth for: %s", recipient_email)
+                    res = client.auth.sign_in_with_otp({"email": recipient_email})
+                    logger.info("Successfully requested Supabase Auth OTP email delivery for %s: %s", recipient_email, res)
+                    return True
+                except Exception as e:
+                    logger.error("Supabase Auth email delivery failed for %s: %s", recipient_email, e)
+
             logger.warning(
                 "\n"
                 "======================================================================\n"
-                "⚠️ [SMTP NOT CONFIGURED IN BACKEND/.ENV]\n"
-                "   To deliver real emails to actual user inboxes, add your SMTP credentials:\n"
+                "⚠️ [EMAIL DELIVERY COULD NOT BE DISPATCHED]\n"
+                "   Neither SMTP nor Supabase Auth delivered an email to: %s\n"
+                "   To deliver real emails, add SMTP credentials to Render/backend/.env:\n"
                 "   SMTP_HOST=smtp.gmail.com\n"
                 "   SMTP_PORT=587\n"
                 "   SMTP_USER=your_email@gmail.com\n"
                 "   SMTP_PASSWORD=your_app_password\n"
-                "======================================================================"
+                "======================================================================\n",
+                recipient_email
             )
             return False
 
@@ -231,13 +244,33 @@ If you did not request this, please disregard this email.
         record = self.get_record(normalized_email)
 
         if not record:
+            client = get_supabase_client()
+            if client:
+                try:
+                    res = client.auth.verify_otp({"email": normalized_email, "token": code.strip(), "type": "email"})
+                    if res and (getattr(res, "user", None) or getattr(res, "session", None)):
+                        return True, "Email verified successfully via Supabase Authentication!", False
+                except Exception:
+                    pass
             return False, "No verification request found for this email. Please register again.", True
 
         if utc_now() > record.expires_at:
             self.delete_record(normalized_email)
             return False, f"Verification expired ({self.expiration_minutes} minutes limit exceeded). Please recreate your account.", True
 
-        if record.code.strip() != code.strip():
+        # Check local generated code OR Supabase Auth OTP token
+        is_code_valid = (record.code.strip() == code.strip())
+        if not is_code_valid:
+            client = get_supabase_client()
+            if client:
+                try:
+                    res = client.auth.verify_otp({"email": normalized_email, "token": code.strip(), "type": "email"})
+                    if res and (getattr(res, "user", None) or getattr(res, "session", None)):
+                        is_code_valid = True
+                except Exception as e:
+                    logger.debug("Supabase OTP verify error: %s", e)
+
+        if not is_code_valid:
             return False, "Incorrect verification code. Please check your email and try again.", False
 
         record.is_verified = True
