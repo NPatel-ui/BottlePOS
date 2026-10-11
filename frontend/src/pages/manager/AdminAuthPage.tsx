@@ -593,20 +593,11 @@ export default function AdminAuthPage() {
                       <div className="space-y-2 pt-1">
                         <button
                           type="button"
-                          onClick={() => handleLinkConfirmed(verificationEmail)}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black h-12 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all text-xs uppercase tracking-wider"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Instant Verify &amp; Enter (1-Click)</span>
-                        </button>
-
-                        <button
-                          type="button"
                           onClick={handleResendCode}
                           disabled={isResending || remainingSeconds > 540}
-                          className="w-full btn-filled h-11 flex items-center justify-center gap-2 font-bold disabled:opacity-50 text-xs"
+                          className="w-full btn-filled h-12 flex items-center justify-center gap-2 font-bold disabled:opacity-50 text-sm"
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
                           <span>{isResending ? 'Sending...' : 'Resend Confirmation Link'}</span>
                         </button>
 
