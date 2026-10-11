@@ -11,7 +11,9 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.t
 FROM python:3.12-slim
 
 RUN groupadd -g 999 appuser && \
-    useradd -r -u 999 -g appuser appuser
+    useradd -m -u 999 -g appuser -d /home/appuser -s /bin/bash appuser && \
+    mkdir -p /home/appuser /app && \
+    chown -R appuser:appuser /home/appuser /app
 
 WORKDIR /app
 
@@ -23,9 +25,10 @@ RUN pip install --no-cache /wheels/*
 COPY --chown=appuser:appuser . .
 COPY --chown=appuser:appuser .env.example .env
 
+ENV HOME=/home/appuser
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8000 10000
 
 ENV PYTHONPATH=/app
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "app.main:app"]
