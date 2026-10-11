@@ -30,14 +30,22 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=[host.strip() for host in settings.allowed_hosts.split(",") if host.strip()]
-)
+raw_hosts = [h.strip() for h in settings.allowed_hosts.split(",") if h.strip()]
+if "*" in raw_hosts or not raw_hosts:
+    allowed_hosts = ["*"]
+else:
+    allowed_hosts = list(set(raw_hosts + ["*.onrender.com", "bottlepos.onrender.com", "localhost", "127.0.0.1"]))
 
 app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=allowed_hosts
+)
+
+cors_origins_list = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_origins=cors_origins_list,
+    allow_origin_regex=r"https://.*\.onrender\.com|https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,6 +70,16 @@ async def add_request_id_and_log(request: Request, call_next):
     logger.info(f"Request: {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.4f}s - ID: {request_id}")
     
     return response
+
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "app": settings.app_name,
+        "version": "1.0.0",
+        "docs_url": "/docs",
+        "health_url": "/health"
+    }
 
 @app.get("/health")
 async def health_check():
