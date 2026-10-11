@@ -39,33 +39,6 @@ class EmailVerificationService:
         from_email = settings.smtp_from_email.strip() or smtp_user or "no-reply@bottlepos.com"
         from_name = settings.smtp_from_name or "BottlePOS Security"
 
-        if not smtp_host or not smtp_user or not smtp_pass:
-            # Fallback to Supabase Auth OTP Email Delivery!
-            client = get_supabase_client()
-            if client:
-                try:
-                    logger.info("SMTP not configured. Delegating verification email to Supabase Auth for: %s", recipient_email)
-                    res = client.auth.sign_in_with_otp({"email": recipient_email})
-                    logger.info("Successfully requested Supabase Auth OTP email delivery for %s: %s", recipient_email, res)
-                    return True
-                except Exception as e:
-                    logger.error("Supabase Auth email delivery failed for %s: %s", recipient_email, e)
-
-            logger.warning(
-                "\n"
-                "======================================================================\n"
-                "⚠️ [EMAIL DELIVERY COULD NOT BE DISPATCHED]\n"
-                "   Neither SMTP nor Supabase Auth delivered an email to: %s\n"
-                "   To deliver real emails, add SMTP credentials to Render/backend/.env:\n"
-                "   SMTP_HOST=smtp.gmail.com\n"
-                "   SMTP_PORT=587\n"
-                "   SMTP_USER=your_email@gmail.com\n"
-                "   SMTP_PASSWORD=your_app_password\n"
-                "======================================================================\n",
-                recipient_email
-            )
-            return False
-
         subject = f"Your BottlePOS Verification Code: {code}"
         
         html_body = f"""<!DOCTYPE html>
@@ -143,33 +116,76 @@ Please enter this code on the BottlePOS verification screen.
 If you did not request this, please disregard this email.
 """
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = recipient_email
+        # 1. PRIORITY: Lightning-Fast Resend REST API (Delivers in < 1-2 seconds)
+        resend_key = (getattr(settings, "resend_api_key", "") or "").strip()
+        if resend_key:
+            try:
+                import httpx
+                logger.info("Dispatching verification email instantly via Resend API to %s", recipient_email)
+                sender = f"{from_name} <{from_email or 'onboarding@resend.dev'}>"
+                resp = httpx.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {resend_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "from": sender,
+                        "to": [recipient_email],
+                        "subject": subject,
+                        "html": html_body,
+                        "text": plain_text
+                    },
+                    timeout=6.0
+                )
+                if resp.status_code in (200, 201):
+                    logger.info("Delivered instant verification email via Resend to %s", recipient_email)
+                    return True
+                else:
+                    logger.warning("Resend API response %s: %s. Falling back to SMTP/Supabase.", resp.status_code, resp.text)
+            except Exception as e:
+                logger.warning("Resend API dispatch failed: %s. Falling back to SMTP/Supabase.", e)
 
-        msg.attach(MIMEText(plain_text, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
+        # 2. PRIORITY: Direct High-Speed SMTP (Gmail / Brevo / Custom SMTP)
+        if smtp_host and smtp_user and smtp_pass:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{from_name} <{from_email}>"
+            msg["To"] = recipient_email
 
-        try:
-            if smtp_port == 465:
-                # SSL connection
-                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(from_email, [recipient_email], msg.as_string())
-            else:
-                # STARTTLS connection (standard 587)
-                with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-                    if settings.smtp_tls:
-                        server.starttls()
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(from_email, [recipient_email], msg.as_string())
+            msg.attach(MIMEText(plain_text, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
 
-            logger.info("Successfully delivered professional verification email to %s via %s", recipient_email, smtp_host)
-            return True
-        except Exception as e:
-            logger.error("Failed to deliver verification email to %s via SMTP: %s", recipient_email, e)
-            return False
+            try:
+                if smtp_port == 465:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(from_email, [recipient_email], msg.as_string())
+                else:
+                    with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                        if settings.smtp_tls:
+                            server.starttls()
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(from_email, [recipient_email], msg.as_string())
+
+                logger.info("Delivered verification email to %s via SMTP (%s)", recipient_email, smtp_host)
+                return True
+            except Exception as e:
+                logger.error("Failed to deliver verification email to %s via SMTP: %s", recipient_email, e)
+
+        # 3. PRIORITY: Supabase Auth Email Service (Fallback)
+        client = get_supabase_client()
+        if client:
+            try:
+                logger.info("Delegating verification email to Supabase Auth for: %s", recipient_email)
+                res = client.auth.sign_in_with_otp({"email": recipient_email})
+                logger.info("Requested Supabase Auth OTP email delivery for %s: %s", recipient_email, res)
+                return True
+            except Exception as e:
+                logger.error("Supabase Auth email delivery failed for %s: %s", recipient_email, e)
+
+        logger.warning("No email dispatch service (Resend, SMTP, or Supabase) was able to deliver to %s", recipient_email)
+        return False
 
     def create_verification(self, email: str) -> VerificationRecord:
         normalized_email = email.strip().lower()
