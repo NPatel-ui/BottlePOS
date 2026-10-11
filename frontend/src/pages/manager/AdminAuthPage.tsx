@@ -33,9 +33,7 @@ export default function AdminAuthPage() {
   // Verification states
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
   const [remainingSeconds, setRemainingSeconds] = useState(600); // 10 minutes = 600s
-  const [isVerifying, setIsVerifying] = useState(false);
   const [verificationSuccess, setVerificationSuccess] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [isResending, setIsResending] = useState(false);
@@ -48,7 +46,6 @@ export default function AdminAuthPage() {
 
   const login = useAuthStore((state) => state.login);
   const register = useAuthStore((state) => state.register);
-  const verifyEmail = useAuthStore((state) => state.verifyEmail);
   const confirmLink = useAuthStore((state) => state.confirmLink);
   const resendVerification = useAuthStore((state) => state.resendVerification);
   const navigate = useNavigate();
@@ -157,7 +154,6 @@ export default function AdminAuthPage() {
           // Open "Check email for verification" popup modal
           setVerificationEmail(result.email || email);
           setRemainingSeconds(600); // 10 minutes
-          setVerificationCode('');
           setVerificationSuccess(false);
           setVerificationMessage('Verification code has been dispatched. It is valid for 10 minutes.');
           setShowVerificationModal(true);
@@ -210,30 +206,6 @@ export default function AdminAuthPage() {
     }
   };
 
-  const handleVerifyCode = async () => {
-    if (!verificationCode || verificationCode.trim().length !== 6) {
-      setError('Please enter the full 6-digit verification code.');
-      return;
-    }
-    setError('');
-    setIsVerifying(true);
-    try {
-      const result = await verifyEmail(verificationEmail, verificationCode.trim());
-      if (result.success) {
-        setVerificationSuccess(true);
-        setVerificationMessage('Email verified successfully! You can now log in with your credentials.');
-        setSuccessNotice('Email verified! Please enter your password to sign in.');
-      } else if (result.expired) {
-        setError('Verification expired after 10 minutes. Please recreate your account.');
-        setShowVerificationModal(false);
-        setIsLogin(false);
-      } else {
-        setError(result.message || 'Incorrect verification code.');
-      }
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   const handleResendCode = async () => {
     if (isResending) return;
