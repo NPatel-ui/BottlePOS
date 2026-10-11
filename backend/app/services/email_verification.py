@@ -39,7 +39,8 @@ class EmailVerificationService:
         from_email = settings.smtp_from_email.strip() or smtp_user or "no-reply@bottlepos.com"
         from_name = settings.smtp_from_name or "BottlePOS Security"
 
-        subject = f"Your BottlePOS Verification Code: {code}"
+        confirm_url = f"https://bottle-pos.vercel.app/admin?verify_email={recipient_email}"
+        subject = "Your BottlePOS Verification Link — Instant Access"
         
         html_body = f"""<!DOCTYPE html>
 <html>
@@ -66,23 +67,26 @@ class EmailVerificationService:
             <td style="padding: 36px 32px;">
               <h2 style="margin: 0 0 12px; color: #0f172a; font-size: 20px; font-weight: 800;">Verify Your Admin Account</h2>
               <p style="margin: 0 0 24px; color: #475569; font-size: 14px; line-height: 1.6;">
-                Welcome to BottlePOS. Please enter the single-use 6-digit security code below to activate your manager account and unlock the admin portal:
+                Welcome to BottlePOS! Click the button below to instantly verify your email address and unlock the management portal:
               </p>
               
-              <!-- Verification Code Display -->
-              <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 18px; padding: 24px; text-align: center; margin: 24px 0;">
-                <span style="font-family: 'Courier New', Courier, monospace; font-size: 40px; font-weight: 900; letter-spacing: 8px; color: #0f172a; display: block;">
-                  {code}
-                </span>
-                <span style="display: inline-block; margin-top: 12px; color: #b45309; background: #fef3c7; border: 1px solid #fde68a; font-size: 12px; font-weight: 800; padding: 4px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ⏱ Valid for {self.expiration_minutes} minutes only
-                </span>
+              <!-- 1-Click Verification Button -->
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="{confirm_url}" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; text-decoration: none; padding: 16px 36px; font-size: 15px; font-weight: 800; border-radius: 14px; display: inline-block; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35); text-transform: uppercase; letter-spacing: 0.5px;">
+                  Verify &amp; Unlock Portal
+                </a>
               </div>
+
+              <!-- Direct Link -->
+              <p style="text-align: center; color: #64748b; font-size: 12px; margin: 16px 0; word-break: break-all;">
+                Or click this direct link:<br>
+                <a href="{confirm_url}" style="color: #2563eb; font-weight: 600;">{confirm_url}</a>
+              </p>
 
               <!-- Expiry Alert -->
               <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 16px; border-radius: 8px; margin: 24px 0;">
                 <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 600; line-height: 1.5;">
-                  <strong>Note:</strong> If not verified within 10 minutes, this code and your pending registration will expire. You will then need to recreate your account.
+                  <strong>Note:</strong> This verification link is valid for {self.expiration_minutes} minutes.
                 </p>
               </div>
 
@@ -108,11 +112,10 @@ class EmailVerificationService:
 
         plain_text = f"""BottlePOS - Admin Account Verification
 
-Your verification code is: {code}
+Welcome to BottlePOS! Click the link below to verify your account:
+{confirm_url}
 
-This code will expire in {self.expiration_minutes} minutes.
-Please enter this code on the BottlePOS verification screen.
-
+This link will expire in {self.expiration_minutes} minutes.
 If you did not request this, please disregard this email.
 """
 
@@ -122,7 +125,7 @@ If you did not request this, please disregard this email.
             try:
                 import httpx
                 logger.info("Dispatching verification email instantly via Resend API to %s", recipient_email)
-                sender = f"{from_name} <{from_email or 'onboarding@resend.dev'}>"
+                sender = "BottlePOS Security <onboarding@resend.dev>"
                 resp = httpx.post(
                     "https://api.resend.com/emails",
                     headers={

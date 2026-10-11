@@ -16,11 +16,12 @@ class EmployeeService:
             existing = self.repository.get_by_email(data.email)
             if existing:
                 if not existing.active_status:
-                    if email_verification_service.is_expired(data.email):
-                        self.repository.delete(existing.id)
-                        email_verification_service.delete_record(data.email)
-                    else:
-                        raise ValidationException("An account with this email is pending verification. Please verify within 10 minutes or wait for it to expire.")
+                    # Refresh password and allow new verification attempt seamlessly
+                    if data.password:
+                        existing.password_hash = get_password_hash(data.password)
+                    if data.first_name:
+                        existing.first_name = data.first_name
+                    return self.repository.update(existing)
                 else:
                     raise ValidationException("Email already registered. Please log in.")
             

@@ -53,11 +53,12 @@ async def register(
     
     return {
         "status": "pending_verification",
-        "message": "Account created! A verification code has been dispatched to your email address.",
+        "message": "Account created! Verification link generated.",
         "email": email,
         "expires_in_minutes": 10,
         "expires_at": verification.expires_at.isoformat(),
-        "employee_id": employee.id
+        "employee_id": employee.id,
+        "verification_link": f"https://bottle-pos.vercel.app/admin?verify_email={email}"
     }
 
 @router.post("/verify-email")

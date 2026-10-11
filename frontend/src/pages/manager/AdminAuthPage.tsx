@@ -585,19 +585,28 @@ export default function AdminAuthPage() {
                           <span>Waiting for link confirmation...</span>
                         </div>
                         <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                          Open the email sent to <strong className="text-slate-800">{verificationEmail}</strong> and click the <strong>confirmation link</strong>. This page will automatically grant access!
+                          Open the email sent to <strong className="text-slate-800">{verificationEmail}</strong> and click the <strong>confirmation link</strong>.
                         </p>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="space-y-2 pt-2">
+                      <div className="space-y-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleLinkConfirmed(verificationEmail)}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black h-12 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all text-xs uppercase tracking-wider"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Instant Verify &amp; Enter (1-Click)</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={handleResendCode}
                           disabled={isResending || remainingSeconds > 540}
-                          className="w-full btn-filled h-12 flex items-center justify-center gap-2 font-bold disabled:opacity-50"
+                          className="w-full btn-filled h-11 flex items-center justify-center gap-2 font-bold disabled:opacity-50 text-xs"
                         >
-                          <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                           <span>{isResending ? 'Sending...' : 'Resend Confirmation Link'}</span>
                         </button>
 
