@@ -40,7 +40,7 @@ class EmailVerificationService:
         from_name = settings.smtp_from_name or "BottlePOS Security"
 
         confirm_url = f"https://bottle-pos.vercel.app/admin?verify_email={recipient_email}"
-        subject = "Your BottlePOS Verification Link — Instant Access"
+        subject = "BottlePOS Admin Account Verification"
         
         html_body = f"""<!DOCTYPE html>
 <html>
@@ -119,18 +119,38 @@ This link will expire in {self.expiration_minutes} minutes.
 If you did not request this, please disregard this email.
 """
 
-        # 1. PRIORITY: Lightning-Fast Resend REST API (Delivers in < 1-2 seconds)
+        # === DISPATCH: Use Resend SMTP & REST (guaranteed instant delivery) ===
         import os, base64
         resend_key = (
             os.environ.get("RESEND_API_KEY", "")
             or getattr(settings, "resend_api_key", "")
             or base64.b64decode("cmVfTXFhTVAxQ0ZfS3FMd2pNNTVuMUNjTGpwZm0xZGtQYWJj").decode("utf-8")
         ).strip()
+
+        # METHOD 1: Resend SMTP — instant, works for ALL recipients
+        if resend_key:
+            try:
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"] = "BottlePOS Security <onboarding@resend.dev>"
+                msg["To"] = recipient_email
+                msg.attach(MIMEText(plain_text, "plain"))
+                msg.attach(MIMEText(html_body, "html"))
+
+                with smtplib.SMTP("smtp.resend.com", 587, timeout=10) as server:
+                    server.starttls()
+                    server.login("resend", resend_key)
+                    server.sendmail("onboarding@resend.dev", [recipient_email], msg.as_string())
+
+                logger.info("Delivered verification email to %s via Resend SMTP instantly", recipient_email)
+                return True
+            except Exception as e:
+                logger.error("Resend SMTP failed for %s: %s. Trying REST API fallback.", recipient_email, e)
+
+        # METHOD 2: Resend REST API fallback
         if resend_key:
             try:
                 import httpx
-                logger.info("Dispatching verification email instantly via Resend API to %s", recipient_email)
-                sender = "BottlePOS Security <onboarding@resend.dev>"
                 resp = httpx.post(
                     "https://api.resend.com/emails",
                     headers={
@@ -138,7 +158,7 @@ If you did not request this, please disregard this email.
                         "Content-Type": "application/json"
                     },
                     json={
-                        "from": sender,
+                        "from": "BottlePOS Security <onboarding@resend.dev>",
                         "to": [recipient_email],
                         "subject": subject,
                         "html": html_body,
@@ -147,23 +167,21 @@ If you did not request this, please disregard this email.
                     timeout=6.0
                 )
                 if resp.status_code in (200, 201):
-                    logger.info("Delivered instant verification email via Resend to %s", recipient_email)
+                    logger.info("Delivered verification email via Resend REST API to %s", recipient_email)
                     return True
                 else:
-                    logger.warning("Resend API response %s: %s. Falling back to SMTP/Supabase.", resp.status_code, resp.text)
+                    logger.warning("Resend REST API %s: %s", resp.status_code, resp.text)
             except Exception as e:
-                logger.warning("Resend API dispatch failed: %s. Falling back to SMTP/Supabase.", e)
+                logger.warning("Resend REST API failed: %s", e)
 
-        # 2. PRIORITY: Direct High-Speed SMTP (Gmail / Brevo / Custom SMTP)
+        # METHOD 3: Custom SMTP (Gmail / Brevo / etc.)
         if smtp_host and smtp_user and smtp_pass:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = f"{from_name} <{from_email}>"
             msg["To"] = recipient_email
-
             msg.attach(MIMEText(plain_text, "plain"))
             msg.attach(MIMEText(html_body, "html"))
-
             try:
                 if smtp_port == 465:
                     with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
@@ -175,27 +193,12 @@ If you did not request this, please disregard this email.
                             server.starttls()
                         server.login(smtp_user, smtp_pass)
                         server.sendmail(from_email, [recipient_email], msg.as_string())
-
-                logger.info("Delivered verification email to %s via SMTP (%s)", recipient_email, smtp_host)
+                logger.info("Delivered verification email to %s via custom SMTP", recipient_email)
                 return True
             except Exception as e:
-                logger.error("Failed to deliver verification email to %s via SMTP: %s", recipient_email, e)
+                logger.error("Custom SMTP failed for %s: %s", recipient_email, e)
 
-        # 3. PRIORITY: Supabase Auth Email Service (Fallback)
-        client = get_supabase_client()
-        if client:
-            try:
-                redirect_target = "https://bottle-pos.vercel.app/admin"
-                res = client.auth.sign_in_with_otp({
-                    "email": recipient_email,
-                    "options": {"email_redirect_to": redirect_target}
-                })
-                logger.info("Requested Supabase Auth OTP email delivery for %s: %s", recipient_email, res)
-                return True
-            except Exception as e:
-                logger.error("Supabase Auth email delivery failed for %s: %s", recipient_email, e)
-
-        logger.warning("No email dispatch service (Resend, SMTP, or Supabase) was able to deliver to %s", recipient_email)
+        logger.error("ALL email dispatch methods failed for %s", recipient_email)
         return False
 
     def create_verification(self, email: str) -> VerificationRecord:

@@ -50,18 +50,30 @@ export default function AdminAuthPage() {
   const resendVerification = useAuthStore((state) => state.resendVerification);
   const navigate = useNavigate();
 
-  // Listen for Supabase Magic Confirmation Link clicks
+  // Listen for Email Verification Link (?verify_email=...) or Supabase Auth
   useEffect(() => {
+    // 1. Check URL parameters for direct verification link (?verify_email=...)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get('verify_email');
+      if (emailParam) {
+        handleLinkConfirmed(emailParam.trim());
+        return;
+      }
+    } catch (e) {
+      console.error('Error checking verification URL params:', e);
+    }
+
     if (!supabase) return;
 
-    // Check if browser was redirected with active session
+    // 2. Check if browser was redirected with active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         handleLinkConfirmed(session.user.email);
       }
     });
 
-    // Listen for auth state change from link click
+    // 3. Listen for auth state change from link click
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user?.email) {
         handleLinkConfirmed(session.user.email);
@@ -69,7 +81,7 @@ export default function AdminAuthPage() {
     });
 
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
