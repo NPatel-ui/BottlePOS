@@ -34,6 +34,8 @@ interface AuthState {
   fetchCurrentUser: () => Promise<void>;
 }
 
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: !!localStorage.getItem('token'),
   isAdmin: !!localStorage.getItem('token'),
@@ -41,7 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   register: async (username: string, email: string, password: string): Promise<RegisterResult> => {
     try {
-      const response = await fetch('/api/v1/auth/register', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password }),
@@ -68,7 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email: string, password: string): Promise<LoginResult> => {
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -104,7 +106,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   verifyEmail: async (email: string, code: string): Promise<VerifyResult> => {
     try {
-      const response = await fetch('/api/v1/auth/verify-email', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
@@ -137,7 +139,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   resendVerification: async (email: string): Promise<RegisterResult> => {
     try {
-      const response = await fetch('/api/v1/auth/resend-verification', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -166,7 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!token) return;
     
     try {
-      const response = await fetch('/api/v1/employees/me', {
+      const response = await fetch(`${API_BASE}/api/v1/employees/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       

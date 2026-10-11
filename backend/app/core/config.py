@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 480  # 8 hours
     refresh_token_expire_minutes: int = 10080 # 7 days
-    cors_origins: str = "http://localhost:3000,http://localhost:8000,https://bottlepos.onrender.com"
+    cors_origins: str = "http://localhost:3000,http://localhost:8000,https://bottlepos.onrender.com,https://bottle-pos.vercel.app"
     allowed_hosts: str = "localhost,127.0.0.1,*.onrender.com,bottlepos.onrender.com"
     rate_limit: str = "100/minute"
     supabase_url: str = ""
